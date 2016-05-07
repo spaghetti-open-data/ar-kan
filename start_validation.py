@@ -56,7 +56,11 @@ class CkanTester():
             return_state["results"]["existence"] = {"details":resp.status_code, "result":"not_valid"}
 
     def validate_csv(self, package_meta, resource_meta, return_state):
-        return_state["results"]["validate_csv"] = {"result":"valid"}
+        if return_state["results"]["existence"]["result"] != "valid":
+            return_state["results"]["validate_csv"] = {"result":"not_valid", "details":"not appliable"}
+        else:
+            return_state["results"]["validate_csv"] = {"result":"valid"}
+
 
 
 if __name__ == '__main__':
