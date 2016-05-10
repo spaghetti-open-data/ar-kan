@@ -1,5 +1,6 @@
 import sys
 import argparse
+from datetime import datetime
 
 import ckanapi
 import requests
@@ -12,15 +13,17 @@ class CkanTester():
         parser = argparse.ArgumentParser(description="AR-KAN CKAN-API validator.")
         parser.add_argument('-b', '--baseurl', type=str, required=True)
         parser.add_argument('-k', '--api-key', type=str, required=False)
-
+        parser.add_argument('-p', '--package', type=str, required=False)
+        
         parser.add_argument("-t", '--tasks', type=str, nargs="*", default=default_tasks)
 
-        parser.add_argument("-l", "--list-tasks", type=bool)
+        parser.add_argument("-l", "--list-tasks", action="store_true")
         
         args = parser.parse_args()
 
         if args.list_tasks:
-            return default_tasks
+            print default_tasks
+            return
 
         baseurl = args.baseurl
         api_key = args.api_key
@@ -33,10 +36,17 @@ class CkanTester():
         print "connected: " + baseurl
 
         report = []
-
-        for package in ckan.action.package_list():
+        packages = []
+        if args.package:
+            packages = [ args.package ]
+        else:
+            packages = ckan.action.package_list()
+            
+        for package in packages:
+            print "processing package: " + package
             p_meta = ckan.action.package_show(id=package)
             for resource in p_meta.get("resources"):
+                print "processing resource: " + resource.get("name") + " (" + resource.get("id") + ")"
                 r_meta = ckan.action.resource_show(id=resource.get("id"))
                 for t in args.tasks:
                     print "running: " + t + " on: " + package
@@ -57,11 +67,28 @@ class CkanTester():
 
     def validate_csv(self, package_meta, resource_meta, return_state):
         if return_state["results"]["existence"]["result"] != "valid":
-            return_state["results"]["validate_csv"] = {"result":"not_valid", "details":"not appliable"}
+            return_state["results"]["validate_csv"] = {"result":"not_valid", "details":"not applicable"}
         else:
             return_state["results"]["validate_csv"] = {"result":"valid"}
 
+    def check_timestamp(self, package_meta, resource_meta, return_state):
+        print resource_meta.get("revision_timestamp")
+        if not resource_meta.get("revision_timestamp"):
+            return_state["results"]["timestamp"] = {"details":"No revision timestamp", "result":"not_valid"}
+            return
+        
+        resp = requests.head(resource_meta.get("url"))
+        #'Last-Modified': 'Fri, 21 Aug 2015 10:55:10 GMT'
+        last_modified = datetime.strptime(resp.headers["Last-Modified"], "%a, %d %b %Y %H:%M:%S %Z")
+        
+        #u'revision_timestamp': u'2014-10-13T12:48:21.574327'
+        rev_ts = datetime.strptime(resource_meta.get("revision_timestamp"), "%Y-%m-%dT%H:%M:%S.f")
 
+        if last_modified < rev_ts:
+            return_state["results"]["timestamp"] = {"details":"Resource older than revision timestamp", "result":"not_valid"}
+        else: 
+            return_state["results"]["timestamp"] = {"result":"valid"}
+		
 
 if __name__ == '__main__':
     ct = CkanTester()
