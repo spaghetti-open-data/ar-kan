@@ -48,12 +48,12 @@ class CkanTester():
             for resource in p_meta.get("resources"):
                 print "processing resource: " + resource.get("name") + " (" + resource.get("id") + ")"
                 r_meta = ckan.action.resource_show(id=resource.get("id"))
+                res_state = {"results":{}, "package":p_meta, "resource":r_meta}
                 for t in args.tasks:
                     print "running: " + t + " on: " + package
-                    res_state = {"results":{}, "package":p_meta, "resource":r_meta}
                     getattr(self, t)(p_meta, r_meta, res_state)
                     print "ran: " + t + " on: " + package
-                    report.append(res_state)
+                report.append(res_state)
 
         print report
 
